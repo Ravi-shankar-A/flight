@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sky Via — Book Flights</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2220%22>✈️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Style.css">
+</head>
+<body>
+
+<!-- TOASTS -->
+<div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+<!-- SETTINGS MODAL (Groq API key for AI trip review) -->
+<div id="settingsModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>AI trip review settings</h3>
+      <button class="modal-close" id="settingsCloseBtn" aria-label="Close">✕</button>
+    </div>
+    <p class="muted-sm">Sky Via uses <strong>Groq</strong> to write an AI review of your last trip. Paste your own Groq API key below — it's saved only in this browser's local storage, never sent anywhere except directly to Groq.</p>
+    <div class="field">
+      <label for="groqKeyInput">Groq API key</label>
+      <input type="password" id="groqKeyInput" placeholder="gsk_...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-tertiary btn-small" id="groqKeyClearBtn">Clear key</button>
+      <button class="btn btn-primary btn-small" id="groqKeySaveBtn">Save key</button>
+    </div>
+    <p class="field-error" id="settingsError"></p>
+    <p class="muted-sm">Get a free key at <strong>console.groq.com/keys</strong>. Note: this AI feature calls an external API directly from your browser, so it only works when this page is self-hosted or opened locally — not inside the claude.ai preview sandbox.</p>
+  </div>
+</div>
+
+<!-- LOADER -->
+<div id="loader" class="loader-overlay hidden">
+  <div class="plane-loader">
+    <svg viewBox="0 0 24 24" class="plane-icon"><path d="M2.5 19.5l19-7.5-19-7.5v6l13 1.5-13 1.5z"/></svg>
+  </div>
+  <p id="loaderText">Searching flights…</p>
+</div>
+
+<!-- NAVBAR -->
+<header class="navbar">
+  <div class="nav-inner">
+    <button class="logo" data-nav="home" aria-label="Sky Via home">
+      <svg viewBox="0 0 24 24" class="logo-icon"><path d="M2.5 19.5l19-7.5-19-7.5v6l13 1.5-13 1.5z"/></svg>
+      <span>Sky Via</span>
+    </button>
+    <nav class="nav-links">
+      <button class="nav-link" data-nav="home">Search</button>
+      <button class="nav-link" data-nav="popular">Popular flights</button>
+      <button class="nav-link" data-nav="mytrips">My Trips</button>
+      <button class="nav-link" id="authNavBtn" data-nav="auth">Login</button>
+      <div id="userChip" class="user-chip hidden">
+        <span id="userChipName">—</span>
+        <button id="logoutBtn" class="link-btn">Log out</button>
+      </div>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="AI review settings">⚙</button>
+    </nav>
+    <button class="nav-burger" id="navBurger" aria-label="Open menu">☰</button>
+  </div>
+  <div class="nav-mobile" id="navMobile">
+    <button class="nav-link" data-nav="home">Search</button>
+    <button class="nav-link" data-nav="popular">Popular flights</button>
+    <button class="nav-link" data-nav="mytrips">My Trips</button>
+    <button class="nav-link" data-nav="auth">Login / Register</button>
+    <button class="nav-link" id="settingsBtnMobile">AI review settings</button>
+  </div>
+</header>
+
+<main id="app">
+
+<!-- ================= HOME / SEARCH ================= -->
+<section id="view-home" class="view">
+  <div class="hero">
+    <div class="hero-bg" aria-hidden="true">
+      <svg class="route-lines" viewBox="0 0 1200 500" preserveAspectRatio="none">
+        <path d="M0,380 C 200,300 350,420 560,340 S 900,220 1200,300" />
+        <path d="M0,120 C 250,180 420,60 650,140 S 980,260 1200,120" />
+      </svg>
+    </div>
+    <div class="hero-content">
+      <p class="hero-kicker">Fly further, pay less</p>
+      <h1>Where's your next gate?</h1>
+      <p class="hero-sub">Search hundreds of routes and lock in a fare in a few taps.</p>
+    </div>
+  </div>
+
+  <section class="airline-marquee" aria-label="Featured airlines">
+    <div class="airline-marquee-track">
+      <div class="airline-marquee-group">
+        <article class="airline-flight-card">
+          <img src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt="Airplane flying above the clouds" loading="lazy">
+          <div class="airline-flight-label"><strong>IndiGo</strong><span>India's favorite way to fly</span></div>
+        </article>
+        <article class="airline-flight-card">
+          <img src="https://images.unsplash.com/photo-1540962351504-03099e0a754b?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt="Passenger airplane on a runway" loading="lazy">
+          <div class="airline-flight-label"><strong>Emirates</strong><span>Fly better across the world</span></div>
+        </article>
+        <article class="airline-flight-card">
+          <img src="https://images.unsplash.com/photo-1556388158-158ea5ccacbd?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt="Airplane wing in a blue sky" loading="lazy">
+          <div class="airline-flight-label"><strong>Qatar Airways</strong><span>Going places together</span></div>
+        </article>
+        <article class="airline-flight-card">
+          <img src="https://images.unsplash.com/photo-1517479149777-5f3b1511d5ad?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt="Airplane taking off at sunset" loading="lazy">
+          <div class="airline-flight-label"><strong>Air India</strong><span>Experience the new India</span></div>
+        </article>
+      </div>
+      <div class="airline-marquee-group" aria-hidden="true">
+        <article class="airline-flight-card"><img src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt=""><div class="airline-flight-label"><strong>IndiGo</strong><span>India's favorite way to fly</span></div></article>
+        <article class="airline-flight-card"><img src="https://images.unsplash.com/photo-1540962351504-03099e0a754b?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt=""><div class="airline-flight-label"><strong>Emirates</strong><span>Fly better across the world</span></div></article>
+        <article class="airline-flight-card"><img src="https://images.unsplash.com/photo-1556388158-158ea5ccacbd?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt=""><div class="airline-flight-label"><strong>Qatar Airways</strong><span>Going places together</span></div></article>
+        <article class="airline-flight-card"><img src="https://images.unsplash.com/photo-1517479149777-5f3b1511d5ad?auto=format&amp;fit=crop&amp;w=720&amp;q=80" alt=""><div class="airline-flight-label"><strong>Air India</strong><span>Experience the new India</span></div></article>
+      </div>
+    </div>
+  </section>
+
+  <form id="searchForm" class="search-card" autocomplete="off">
+    <div class="trip-type-row">
+      <label class="radio-pill"><input type="radio" name="tripType" value="round" checked> Round trip</label>
+      <label class="radio-pill"><input type="radio" name="tripType" value="one"> One way</label>
+    </div>
+
+    <div class="search-grid">
+      <div class="field autocomplete-field" id="fromField">
+        <label for="fromInput">From</label>
+        <input type="text" id="fromInput" placeholder="City or airport" required>
+        <div class="autocomplete-list" id="fromList"></div>
+      </div>
+
+      <button type="button" id="swapBtn" class="swap-btn" aria-label="Swap origin and destination">⇄</button>
+
+      <div class="field autocomplete-field" id="toField">
+        <label for="toInput">To</label>
+        <input type="text" id="toInput" placeholder="City or airport" required>
+        <div class="autocomplete-list" id="toList"></div>
+      </div>
+
+      <div class="field">
+        <label for="departDate">Departure</label>
+        <input type="date" id="departDate" required>
+      </div>
+
+      <div class="field" id="returnField">
+        <label for="returnDate">Return</label>
+        <input type="date" id="returnDate" required>
+      </div>
+
+      <div class="field dropdown-field" id="paxField">
+        <label>Passengers &amp; class</label>
+        <button type="button" class="dropdown-toggle" id="paxToggle">1 Adult · Economy</button>
+        <div class="dropdown-panel" id="paxPanel">
+          <div class="pax-row">
+            <div>
+              <strong>Adults</strong>
+              <span class="pax-hint">12+ years</span>
+            </div>
+            <div class="stepper">
+              <button type="button" data-pax="adults" data-dir="-1">−</button>
+              <span id="adultsCount">1</span>
+              <button type="button" data-pax="adults" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="pax-row">
+            <div>
+              <strong>Children</strong>
+              <span class="pax-hint">2–11 years</span>
+            </div>
+            <div class="stepper">
+              <button type="button" data-pax="children" data-dir="-1">−</button>
+              <span id="childrenCount">0</span>
+              <button type="button" data-pax="children" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="pax-row">
+            <div><strong>Cabin class</strong></div>
+            <select id="cabinClass">
+              <option value="Economy">Economy</option>
+              <option value="Premium Economy">Premium Economy</option>
+              <option value="Business">Business</option>
+              <option value="First">First</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-secondary btn-small" id="paxDone">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary search-btn">Search flights</button>
+    <p class="field-error" id="searchError"></p>
+  </form>
+
+  <section class="offers">
+    <h2>Popular destinations</h2>
+    <div class="offer-grid" id="offerGrid"></div>
+  </section>
+</section>
+
+<!-- ================= POPULAR FLIGHTS ================= -->
+<section id="view-popular" class="view hidden">
+  <div class="popular-page-head">
+    <p class="hero-kicker">Curated routes</p>
+    <h1>Popular flights and offers</h1>
+    <p>Explore high-demand routes and start a search with one click.</p>
+  </div>
+  <div class="popular-flight-grid" id="popularFlightGrid"></div>
+</section>
+
+<!-- ================= SEARCH RESULTS ================= -->
+<section id="view-results" class="view hidden">
+  <div class="results-layout">
+    <aside class="filters-panel">
+      <div class="filters-head">
+        <h3>Filters</h3>
+        <button class="link-btn" id="clearFilters">Clear all</button>
+      </div>
+
+      <div class="filter-group">
+        <h4>Price range</h4>
+        <input type="range" id="priceFilter" min="0" max="1000" step="10">
+        <div class="filter-row-between"><span>Up to</span><span id="priceFilterValue">$1000</span></div>
+      </div>
+
+      <div class="filter-group">
+        <h4>Stops</h4>
+        <label class="checkbox-row"><input type="checkbox" id="nonstopFilter"> Non-stop only</label>
+      </div>
+
+      <div class="filter-group">
+        <h4>Airlines</h4>
+        <div id="airlineFilterList"></div>
+      </div>
+
+      <div class="filter-group">
+        <h4>Sort by</h4>
+        <select id="sortSelect">
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+          <option value="duration-asc">Duration: shortest</option>
+          <option value="depart-asc">Departure: earliest</option>
+        </select>
+      </div>
+    </aside>
+
+    <div class="results-main">
+      <div class="results-head">
+        <button class="link-btn back-link" data-nav="home">← Modify search</button>
+        <h2 id="resultsSummary">Flights</h2>
+      </div>
+      <div id="resultsTabs" class="results-tabs hidden">
+        <button class="tab-btn active" data-leg="outbound">Outbound</button>
+        <button class="tab-btn" data-leg="return">Return</button>
+      </div>
+      <div id="flightList" class="flight-list"></div>
+      <p id="noResults" class="empty-state hidden">No flights match your filters. Try widening your search.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PASSENGER DETAILS ================= -->
+<section id="view-passengers" class="view hidden">
+  <div class="page-narrow">
+    <button class="link-btn back-link" data-nav="results">← Back to results</button>
+    <h2>Passenger details</h2>
+    <div id="bookingRecap" class="recap-strip"></div>
+    <form id="passengerForm" class="card-block"></form>
+    <div class="sticky-actions">
+      <div class="sticky-total">Total: <strong id="paxPageTotal">$0</strong></div>
+      <button type="submit" form="passengerForm" class="btn btn-primary">Continue to seats</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SEAT SELECTION ================= -->
+<section id="view-seats" class="view hidden">
+  <div class="page-narrow seats-layout">
+    <div class="seats-main">
+      <button class="link-btn back-link" data-nav="passengers">← Back to passenger details</button>
+      <h2>Choose your seats</h2>
+      <p class="muted">Select <span id="seatsNeeded">1</span> seat(s) for your trip.</p>
+
+      <div class="seat-legend">
+        <span><i class="dot dot-available"></i>Available</span>
+        <span><i class="dot dot-selected"></i>Selected</span>
+        <span><i class="dot dot-occupied"></i>Occupied</span>
+        <span><i class="dot dot-premium"></i>Extra legroom</span>
+      </div>
+
+      <div class="cabin-frame">
+        <div class="cockpit">✈</div>
+        <div id="seatMap" class="seat-map"></div>
+      </div>
+    </div>
+
+    <aside class="extras-panel">
+      <h3>Trip extras</h3>
+      <div class="extra-item">
+        <div>
+          <strong>Extra baggage</strong>
+          <p class="muted-sm">+15kg checked bag, per passenger</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="extraBaggage"><span class="slider"></span></label>
+      </div>
+      <div class="extra-item">
+        <div>
+          <strong>In-flight meal</strong>
+          <p class="muted-sm">Hot meal service, per passenger</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="extraMeal"><span class="slider"></span></label>
+      </div>
+      <div class="extra-item">
+        <div>
+          <strong>Travel insurance</strong>
+          <p class="muted-sm">Trip cancellation &amp; delay cover</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="extraInsurance"><span class="slider"></span></label>
+      </div>
+
+      <div class="price-breakdown" id="seatsPriceBreakdown"></div>
+      <button class="btn btn-primary btn-full" id="toSummaryBtn">Continue to summary</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= BOOKING SUMMARY ================= -->
+<section id="view-summary" class="view hidden">
+  <div class="page-narrow">
+    <button class="link-btn back-link" data-nav="seats">← Back to seats</button>
+    <h2>Booking summary</h2>
+    <div id="summaryContent"></div>
+    <div class="sticky-actions">
+      <div class="sticky-total">Total: <strong id="summaryTotal">$0</strong></div>
+      <button class="btn btn-primary" id="toPaymentBtn">Proceed to payment</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PAYMENT ================= -->
+<section id="view-payment" class="view hidden">
+  <div class="page-narrow">
+    <button class="link-btn back-link" data-nav="summary">← Back to summary</button>
+    <h2>Payment</h2>
+    <div class="pay-layout">
+      <form id="paymentForm" class="card-block">
+        <div class="pay-methods">
+          <label class="radio-pill"><input type="radio" name="payMethod" value="card" checked> Card</label>
+          <label class="radio-pill"><input type="radio" name="payMethod" value="upi"> UPI</label>
+          <label class="radio-pill"><input type="radio" name="payMethod" value="netbanking"> Net banking</label>
+        </div>
+
+        <div id="payCardFields" class="pay-fields">
+          <div class="field"><label for="cardName">Name on card</label><input type="text" id="cardName"></div>
+          <div class="field"><label for="cardNumber">Card number</label><input type="text" id="cardNumber" maxlength="19" placeholder="1234 5678 9012 3456"></div>
+          <div class="field-row">
+            <div class="field"><label for="cardExpiry">Expiry (MM/YY)</label><input type="text" id="cardExpiry" maxlength="5" placeholder="MM/YY"></div>
+            <div class="field"><label for="cardCvv">CVV</label><input type="text" id="cardCvv" maxlength="4" placeholder="123"></div>
+          </div>
+        </div>
+
+        <div id="payUpiFields" class="pay-fields hidden">
+          <div class="field"><label for="upiId">UPI ID</label><input type="text" id="upiId" placeholder="name@bank"></div>
+        </div>
+
+        <div id="payNetbankingFields" class="pay-fields hidden">
+          <div class="field">
+            <label for="bankSelect">Select bank</label>
+            <select id="bankSelect">
+              <option>Global Trust Bank</option>
+              <option>Horizon National Bank</option>
+              <option>Union Capital Bank</option>
+              <option>Metro Savings Bank</option>
+            </select>
+          </div>
+        </div>
+
+        <p class="field-error" id="paymentError"></p>
+        <button type="submit" class="btn btn-primary btn-full">Pay <span id="payAmount">$0</span></button>
+        <p class="muted-sm pay-note">Simulated payment — no real charge is made.</p>
+      </form>
+
+      <div id="paySummaryCard" class="card-block pay-summary-card"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONFIRMATION ================= -->
+<section id="view-confirmation" class="view hidden">
+  <div class="page-narrow">
+    <div class="confirm-banner">
+      <div class="confirm-check">✓</div>
+      <h2>Booking confirmed</h2>
+      <p class="muted">A copy of your ticket has been saved to My Trips.</p>
+    </div>
+    <div id="ticketContainer"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirmPrintBtn">Download / Print ticket</button>
+      <button class="btn btn-primary" id="confirmTripsBtn">Go to My Trips</button>
+      <button class="btn btn-tertiary" data-nav="home">Book another flight</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MY TRIPS ================= -->
+<section id="view-mytrips" class="view hidden">
+  <div class="page-narrow">
+    <h2>My trips</h2>
+
+    <div id="aiReviewCard" class="ai-review-card hidden">
+      <div class="ai-review-head">
+        <span class="ai-badge">✨ AI Trip Review</span>
+        <button class="link-btn" id="aiReviewRegenBtn">Regenerate</button>
+      </div>
+      <div id="aiReviewBody"></div>
+    </div>
+
+    <section id="recentReviewsSection" class="recent-reviews hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="section-kicker">Your travel journal</p>
+          <h3>Recent reviews</h3>
+        </div>
+        <span id="recentReviewsCount" class="muted-sm"></span>
+      </div>
+      <div id="recentReviewsList" class="recent-reviews-list"></div>
+    </section>
+
+    <div class="results-tabs">
+      <button class="tab-btn active" data-tripstab="bookings">Bookings</button>
+      <button class="tab-btn" data-tripstab="saved">Saved flights</button>
+    </div>
+
+    <div id="tripsBookingsPanel">
+      <div id="tripsList"></div>
+      <p id="noTrips" class="empty-state hidden">No bookings yet. Search for a flight to get started.</p>
+    </div>
+
+    <div id="tripsSavedPanel" class="hidden">
+      <div id="savedFlightsList" class="flight-list"></div>
+      <p id="noSaved" class="empty-state hidden">No saved flights yet. Tap the ♡ on any flight in search results to save it here.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LOGIN / REGISTER ================= -->
+<section id="view-auth" class="view hidden">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="tab-btn active" id="tabLogin">Log in</button>
+        <button class="tab-btn" id="tabRegister">Register</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <div class="field"><label for="loginEmail">Email</label><input type="email" id="loginEmail" required></div>
+        <div class="field"><label for="loginPassword">Password</label><input type="password" id="loginPassword" required></div>
+        <p class="field-error" id="loginError"></p>
+        <button type="submit" class="btn btn-primary btn-full">Log in</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <div class="field"><label for="regName">Full name</label><input type="text" id="regName" required></div>
+        <div class="field"><label for="regEmail">Email</label><input type="email" id="regEmail" required></div>
+        <div class="field"><label for="regPhone">Phone</label><input type="tel" id="regPhone" required></div>
+        <div class="field"><label for="regPassword">Password</label><input type="password" id="regPassword" required minlength="6"></div>
+        <div class="field"><label for="regPassword2">Confirm password</label><input type="password" id="regPassword2" required minlength="6"></div>
+        <p class="field-error" id="registerError"></p>
+        <button type="submit" class="btn btn-primary btn-full">Create account</button>
+      </form>
+    </div>
+
+    <div id="profileCard" class="auth-card hidden">
+      <h2>Your profile</h2>
+      <div id="profileInfo"></div>
+      <button class="btn btn-secondary btn-full" id="profileLogoutBtn">Log out</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <p>Sky Via — a demo booking experience. No real flights, payments, or data are transmitted.</p>
+</footer>
+
+<script src="Script.js"></script>
+</body>
+</html>
